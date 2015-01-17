@@ -1,16 +1,46 @@
-FROM centos
-MAINTAINER Biju Kunjummen biju.kunjummen@gmail.com
+FROM dockerfile/ubuntu
 
-RUN yum install -y wget unzip tar 
+MAINTAINER Rishu Mehrotra rishu.mehrotra2002@gmail.com
 
-RUN rpm -Uvh http://download.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-2.noarch.rpm
+RUN apt-get install  wget unzip tar 
 
-RUN yum install -y erlang
+RUN apt-get install erlang erlang-doc
 
-RUN rpm --import http://www.rabbitmq.com/rabbitmq-signing-key-public.asc
+ADD bin/rabbitmq-start /usr/local/bin/
 
-RUN yum install -y  http://www.rabbitmq.com/releases/rabbitmq-server/v3.4.0/rabbitmq-server-3.4.0-1.noarch.rpm
+# Install RabbitMQ.
+RUN \
+  wget -qO - https://www.rabbitmq.com/rabbitmq-signing-key-public.asc | apt-key add - && \
+  echo "deb http://www.rabbitmq.com/debian/ testing main" > /etc/apt/sources.list.d/rabbitmq.list && \
+  apt-get update && \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y rabbitmq-server && \
+  rm -rf /var/lib/apt/lists/* && \
+  rabbitmq-plugins enable rabbitmq_management && \
+  echo "[{rabbit, [{loopback_users, []}]}]." > /etc/rabbitmq/rabbitmq.config && \
+  chmod +x /usr/local/bin/rabbitmq-start
 
+
+# Define environment variables.
+ENV RABBITMQ_LOG_BASE /data/log
+ENV RABBITMQ_MNESIA_BASE /data/mnesia
+
+# Define mount points.
+VOLUME ["/data/log", "/data/mnesia"]
+
+# Define working directory.
+WORKDIR /data
+
+# Define default command.
+CMD ["rabbitmq-start"]
+
+# Expose ports.
+EXPOSE 5672
+EXPOSE 15672
+
+
+#start console 
 RUN /usr/sbin/rabbitmq-plugins enable rabbitmq_mqtt rabbitmq_stomp rabbitmq_management  rabbitmq_management_agent rabbitmq_management_visualiser rabbitmq_federation rabbitmq_federation_management sockjs
 
-#CMD /usr/sbin/rabbitmq-server
+
+#restart rabbitmq
+invoke-rc.d rabbitmq-server restart
